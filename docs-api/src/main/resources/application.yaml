@@ -1,3 +1,19 @@
 spring:
   application:
     name: docs-api
+  datasource:
+    url: jdbc:h2:mem:docs
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8083/realms/sandbox
+          jwk-set-uri: http://keycloak:8083/realms/sandbox/protocol/openid-connect/certs
+          audiences:
+            - docs-api
+server:
+  port: 8082

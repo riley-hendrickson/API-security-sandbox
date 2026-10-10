@@ -1,7 +1,11 @@
 package apisecurity.docsapi.dtos;
 
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import java.util.Set;
 
-public record ShareRequest(Long documentId, Set<String> userIds)
+public record ShareRequest(@NotNull Set<@NotBlank String> userIds)
 {
 }

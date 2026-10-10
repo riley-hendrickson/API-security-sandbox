@@ -1,5 +1,8 @@
 package apisecurity.docsapi.dtos;
 
-public record CreateDocumentRequest(String title, String content)
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record CreateDocumentRequest(@NotBlank String title, @NotNull String content)
 {
 }

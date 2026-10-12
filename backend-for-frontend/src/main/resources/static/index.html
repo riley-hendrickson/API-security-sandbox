@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>docs-api CORS test page</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+        h1 { font-size: 1.4rem; }
+        h2 { font-size: 1.05rem; margin-top: 1.6rem; }
+        fieldset { border: 1px solid #ccc; border-radius: 6px; margin-bottom: 1rem; }
+        label { display: block; font-size: 0.85rem; margin: 0.4rem 0 0.2rem; }
+        input, textarea { width: 100%; box-sizing: border-box; font-family: monospace; padding: 0.35rem; }
+        textarea { min-height: 4rem; }
+        button { margin: 0.4rem 0.4rem 0 0; padding: 0.35rem 0.8rem; cursor: pointer; }
+        .note { font-size: 0.85rem; color: #666; }
+        pre { background: #f4f4f4; border-radius: 6px; padding: 0.8rem; white-space: pre-wrap; word-break: break-all; min-height: 3rem; }
+        .ok { border-left: 4px solid #2e7d32; }
+        .err { border-left: 4px solid #c62828; }
+    </style>
+</head>
+<body>
+<h1>docs-api CORS test page</h1>
+<p class="note">
+    Served from the bff origin (<code>http://localhost:8081</code>), calling docs-api
+    (<code>http://localhost:8082</code>) directly from the browser. Keep DevTools open on the
+    Network tab to watch the <code>OPTIONS</code> preflight requests.
+</p>
+
+<fieldset>
+    <legend>Access token</legend>
+    <label for="token">Paste an access token (e.g. alice's, from Postman)</label>
+    <textarea id="token" placeholder="eyJhbGciOi..."></textarea>
+    <p class="note">
+        Note the problem this page demonstrates: the token sits in the page, where any script
+        running here, including an XSS payload, can read it. Phase 3 fixes that.
+    </p>
+</fieldset>
+
+<fieldset>
+    <legend>Read</legend>
+    <button id="btn-list">GET /documents</button>
+    <label for="get-id">Document ID</label>
+    <input id="get-id" type="number" placeholder="1">
+    <button id="btn-get">GET /documents/{id}</button>
+    <button id="btn-no-token">GET /documents (no token)</button>
+    <p class="note">
+        The "no token" call has no custom headers, so it's a "simple" request: the browser sends it
+        with no preflight. Compare it in the Network tab to the calls that send an Authorization header.
+    </p>
+</fieldset>
+
+<fieldset>
+    <legend>Write</legend>
+    <label for="title">Title</label>
+    <input id="title" value="Created from the browser">
+    <label for="content">Content</label>
+    <input id="content" value="hello from localhost:8081">
+    <button id="btn-create">POST /documents</button>
+    <label for="write-id">Document ID (for update / delete / share)</label>
+    <input id="write-id" type="number" placeholder="1">
+    <button id="btn-update">PUT /documents/{id}</button>
+    <button id="btn-delete">DELETE /documents/{id}</button>
+    <label for="share-ids">Share with user IDs (comma-separated)</label>
+    <input id="share-ids" placeholder="22222222-2222-2222-2222-222222222222">
+    <button id="btn-share">POST /documents/{id}/shares</button>
+</fieldset>
+
+<h2>Result</h2>
+<pre id="output">No request sent yet.</pre>
+
+<script>
+    const API = "http://localhost:8082";
+    const $ = (id) => document.getElementById(id);
+
+    // Uses textContent, never innerHTML, so API responses can't inject markup into this page.
+    function show(text, ok) {
+        const out = $("output");
+        out.textContent = text;
+        out.className = ok ? "ok" : "err";
+    }
+
+    async function call(method, path, body, withToken = true) {
+        const headers = {};
+        if (withToken) headers["Authorization"] = "Bearer " + $("token").value.trim();
+        if (body !== undefined) headers["Content-Type"] = "application/json";
+
+        try {
+            const res = await fetch(API + path, {
+                method,
+                headers,
+                body: body === undefined ? undefined : JSON.stringify(body),
+            });
+            const text = await res.text();
+            let pretty = text;
+            try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (_) { /* not JSON */ }
+            show(`${method} ${path} -> ${res.status} ${res.statusText}\n\n${pretty || "(empty body)"}`, res.ok);
+        } catch (e) {
+            // fetch rejects with a TypeError when the browser blocks the response (CORS) or the
+            // server is unreachable. The browser deliberately hides which one from JavaScript;
+            // the real reason is in the DevTools console.
+            show(`${method} ${path} -> request failed: ${e.message}\n\n` +
+                "Likely a CORS block or the server is down. Check the DevTools console for the reason.", false);
+        }
+    }
+
+    $("btn-list").onclick     = () => call("GET", "/documents");
+    $("btn-get").onclick      = () => call("GET", `/documents/${$("get-id").value}`);
+    $("btn-no-token").onclick = () => call("GET", "/documents", undefined, false);
+    $("btn-create").onclick   = () => call("POST", "/documents", { title: $("title").value, content: $("content").value });
+    $("btn-update").onclick   = () => call("PUT", `/documents/${$("write-id").value}`, { title: $("title").value, content: $("content").value });
+    $("btn-delete").onclick   = () => call("DELETE", `/documents/${$("write-id").value}`);
+    $("btn-share").onclick    = () => call("POST", `/documents/${$("write-id").value}/shares`, {
+        userIds: $("share-ids").value.split(",").map(s => s.trim()).filter(Boolean),
+    });
+</script>
+</body>
+</html>

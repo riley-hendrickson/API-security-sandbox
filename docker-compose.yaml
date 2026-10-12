@@ -11,6 +11,8 @@ services:
     container_name: backend-for-frontend
     ports:
       - "8081:8081"
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8083
 
   docs-api:
     build: ./docs-api
@@ -27,6 +29,8 @@ services:
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
     environment:
+      KC_HOSTNAME: http://localhost:8083
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
 

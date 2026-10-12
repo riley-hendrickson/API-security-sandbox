@@ -1,3 +1,6 @@
 spring:
   application:
     name: backend-for-frontend
+
+server:
+  port: 8081

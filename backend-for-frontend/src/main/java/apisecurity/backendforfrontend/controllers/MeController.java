@@ -8,9 +8,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class MeController
 {
+    public record MeResponse(String sub, String preferredUsername, String email) {}
+
     @GetMapping("/me")
-    public String me(@AuthenticationPrincipal OidcUser user)
+    public MeResponse me(@AuthenticationPrincipal OidcUser user)
     {
-        return user.getSubject() + " " + user.getPreferredUsername() + " " + user.getEmail();
+        return new MeResponse(user.getSubject(), user.getPreferredUsername(), user.getEmail());
     }
 }

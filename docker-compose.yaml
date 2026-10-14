@@ -13,6 +13,8 @@ services:
       - "8081:8081"
     environment:
       KEYCLOAK_INTERNAL_URL: http://keycloak:8083
+      DOCS_API_URL: http://docs-api:8082
+      CSRF_ENABLED: "true"
 
   docs-api:
     build: ./docs-api

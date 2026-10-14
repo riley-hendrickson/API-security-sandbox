@@ -3,15 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>docs-api CORS test page</title>
+    <title>Docs (via BFF)</title>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #222; }
-        h1 { font-size: 1.4rem; }
-        h2 { font-size: 1.05rem; margin-top: 1.6rem; }
+        h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+        header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
         fieldset { border: 1px solid #ccc; border-radius: 6px; margin-bottom: 1rem; }
         label { display: block; font-size: 0.85rem; margin: 0.4rem 0 0.2rem; }
-        input, textarea { width: 100%; box-sizing: border-box; font-family: monospace; padding: 0.35rem; }
-        textarea { min-height: 4rem; }
+        input { width: 100%; box-sizing: border-box; font-family: monospace; padding: 0.35rem; }
         button { margin: 0.4rem 0.4rem 0 0; padding: 0.35rem 0.8rem; cursor: pointer; }
         .note { font-size: 0.85rem; color: #666; }
         pre { background: #f4f4f4; border-radius: 6px; padding: 0.8rem; white-space: pre-wrap; word-break: break-all; min-height: 3rem; }
@@ -20,99 +19,138 @@
     </style>
 </head>
 <body>
-<h1>docs-api CORS test page</h1>
+<header>
+    <div>
+        <h1>Docs (via BFF)</h1>
+        <div class="note">Signed in as <strong id="who">…</strong></div>
+    </div>
+    <!-- Spring's confirmation page renders a form with a correctly formatted CSRF token. -->
+    <a href="/logout">Log out</a>
+</header>
+
 <p class="note">
-    Served from the bff origin (<code>http://localhost:8081</code>), calling docs-api
-    (<code>http://localhost:8082</code>) directly from the browser. Keep DevTools open on the
-    Network tab to watch the <code>OPTIONS</code> preflight requests.
+    Every call goes to <code>/api/...</code> on this page's own origin. The browser sends only the
+    session cookie; the bff attaches the access token server-side. Open DevTools → Application →
+    Cookies: you'll find <code>JSESSIONID</code> (HttpOnly) and <code>XSRF-TOKEN</code> (readable),
+    and no access token anywhere.
 </p>
 
 <fieldset>
-    <legend>Access token</legend>
-    <label for="token">Paste an access token (e.g. alice's, from Postman)</label>
-    <textarea id="token" placeholder="eyJhbGciOi..."></textarea>
-    <p class="note">
-        Note the problem this page demonstrates: the token sits in the page, where any script
-        running here, including an XSS payload, can read it. Phase 3 fixes that.
-    </p>
-</fieldset>
-
-<fieldset>
     <legend>Read</legend>
-    <button id="btn-list">GET /documents</button>
+    <button id="btn-list">GET /api/documents</button>
     <label for="get-id">Document ID</label>
     <input id="get-id" type="number" placeholder="1">
-    <button id="btn-get">GET /documents/{id}</button>
-    <button id="btn-no-token">GET /documents (no token)</button>
-    <p class="note">
-        The "no token" call has no custom headers, so it's a "simple" request: the browser sends it
-        with no preflight. Compare it in the Network tab to the calls that send an Authorization header.
-    </p>
+    <button id="btn-get">GET /api/documents/{id}</button>
 </fieldset>
 
 <fieldset>
     <legend>Write</legend>
     <label for="title">Title</label>
-    <input id="title" value="Created from the browser">
+    <input id="title" value="Created through the BFF">
     <label for="content">Content</label>
-    <input id="content" value="hello from localhost:8081">
-    <button id="btn-create">POST /documents</button>
+    <input id="content" value="No token ever touched the browser.">
+    <button id="btn-create">POST /api/documents</button>
     <label for="write-id">Document ID (for update / delete / share)</label>
     <input id="write-id" type="number" placeholder="1">
-    <button id="btn-update">PUT /documents/{id}</button>
-    <button id="btn-delete">DELETE /documents/{id}</button>
+    <button id="btn-update">PUT /api/documents/{id}</button>
+    <button id="btn-delete">DELETE /api/documents/{id}</button>
     <label for="share-ids">Share with user IDs (comma-separated)</label>
     <input id="share-ids" placeholder="22222222-2222-2222-2222-222222222222">
-    <button id="btn-share">POST /documents/{id}/shares</button>
+    <button id="btn-share">POST /api/documents/{id}/shares</button>
 </fieldset>
 
-<h2>Result</h2>
+<fieldset>
+    <legend>CSRF check</legend>
+    <button id="btn-no-csrf">POST /api/documents without the CSRF header</button>
+    <p class="note">
+        Same request as "POST /api/documents", minus <code>X-XSRF-TOKEN</code>. Expect 403: the session
+        cookie alone isn't enough to change anything.
+    </p>
+</fieldset>
+
+<h2 style="font-size:1.05rem">Result</h2>
 <pre id="output">No request sent yet.</pre>
 
 <script>
-    const API = "http://localhost:8082";
     const $ = (id) => document.getElementById(id);
 
-    // Uses textContent, never innerHTML, so API responses can't inject markup into this page.
+    // Uses textContent, never innerHTML, so responses can't inject markup into this page.
     function show(text, ok) {
         const out = $("output");
         out.textContent = text;
         out.className = ok ? "ok" : "err";
     }
 
-    async function call(method, path, body, withToken = true) {
-        const headers = {};
-        if (withToken) headers["Authorization"] = "Bearer " + $("token").value.trim();
-        if (body !== undefined) headers["Content-Type"] = "application/json";
+    // The bff's CSRF setup writes the token into a JS-readable cookie; we echo it back in a header.
+    function csrfToken() {
+        const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : null;
+    }
 
+    async function call(method, path, body, { sendCsrf = true } = {}) {
+        const headers = {};
+        if (body !== undefined) headers["Content-Type"] = "application/json";
+        const unsafe = !["GET", "HEAD", "OPTIONS"].includes(method);
+        if (unsafe && sendCsrf) {
+            const token = csrfToken();
+            if (token) headers["X-XSRF-TOKEN"] = token;
+        }
+
+        let res;
         try {
-            const res = await fetch(API + path, {
+            // Same-origin request: the browser attaches JSESSIONID and XSRF-TOKEN cookies automatically.
+            res = await fetch(path, {
                 method,
                 headers,
                 body: body === undefined ? undefined : JSON.stringify(body),
             });
-            const text = await res.text();
-            let pretty = text;
-            try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (_) { /* not JSON */ }
-            show(`${method} ${path} -> ${res.status} ${res.statusText}\n\n${pretty || "(empty body)"}`, res.ok);
         } catch (e) {
-            // fetch rejects with a TypeError when the browser blocks the response (CORS) or the
-            // server is unreachable. The browser deliberately hides which one from JavaScript;
-            // the real reason is in the DevTools console.
-            show(`${method} ${path} -> request failed: ${e.message}\n\n` +
-                "Likely a CORS block or the server is down. Check the DevTools console for the reason.", false);
+            show(`${method} ${path} -> request failed: ${e.message}`, false);
+            return null;
+        }
+
+        // Session gone (logged out, timed out, or refresh failed): go log in again.
+        if (res.status === 401) {
+            show(`${method} ${path} -> 401: session expired. Redirecting to login...`, false);
+            setTimeout(() => { window.location.href = "/oauth2/authorization/keycloak"; }, 1200);
+            return null;
+        }
+
+        const text = await res.text();
+        let pretty = text;
+        try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (_) { /* not JSON */ }
+        show(`${method} ${path} -> ${res.status}\n\n${pretty || "(empty body)"}`, res.ok);
+        return res.ok ? text : null;
+    }
+
+    async function loadWhoAmI() {
+        try {
+            const res = await fetch("/me");
+            console.log("/me status:", res.status, "content-type:", res.headers.get("content-type"));
+            const text = await res.text();
+            console.log("/me body:", text);
+            if (!res.ok) { $("who").textContent = `(unknown: ${res.status})`; return; }
+            const me = JSON.parse(text);
+            $("who").textContent = me.preferredUsername || me.sub || "(unknown)";
+        } catch (e) {
+            console.error("loadWhoAmI failed:", e);
+            $("who").textContent = "(unknown)";
         }
     }
 
-    $("btn-list").onclick     = () => call("GET", "/documents");
-    $("btn-get").onclick      = () => call("GET", `/documents/${$("get-id").value}`);
-    $("btn-no-token").onclick = () => call("GET", "/documents", undefined, false);
-    $("btn-create").onclick   = () => call("POST", "/documents", { title: $("title").value, content: $("content").value });
-    $("btn-update").onclick   = () => call("PUT", `/documents/${$("write-id").value}`, { title: $("title").value, content: $("content").value });
-    $("btn-delete").onclick   = () => call("DELETE", `/documents/${$("write-id").value}`);
-    $("btn-share").onclick    = () => call("POST", `/documents/${$("write-id").value}/shares`, {
+    const newDoc = () => ({ title: $("title").value, content: $("content").value });
+
+    $("btn-list").onclick    = () => call("GET", "/api/documents");
+    $("btn-get").onclick     = () => call("GET", `/api/documents/${$("get-id").value}`);
+    $("btn-create").onclick  = () => call("POST", "/api/documents", newDoc());
+    $("btn-update").onclick  = () => call("PUT", `/api/documents/${$("write-id").value}`, newDoc());
+    $("btn-delete").onclick  = () => call("DELETE", `/api/documents/${$("write-id").value}`);
+    $("btn-share").onclick   = () => call("POST", `/api/documents/${$("write-id").value}/shares`, {
         userIds: $("share-ids").value.split(",").map(s => s.trim()).filter(Boolean),
     });
+    $("btn-no-csrf").onclick = () => call("POST", "/api/documents", newDoc(), { sendCsrf: false });
+
+    loadWhoAmI();
 </script>
 </body>
 </html>

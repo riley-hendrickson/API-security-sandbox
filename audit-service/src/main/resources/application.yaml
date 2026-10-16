@@ -1,3 +1,16 @@
 spring:
   application:
     name: audit-service
+  jackson:
+    deserialization:
+      FAIL_ON_UNKNOWN_PROPERTIES: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8083/realms/sandbox
+          jwk-set-uri: http://keycloak:8083/realms/sandbox/protocol/openid-connect/certs
+          audiences:
+            - audit-service
+server:
+  port: 8080

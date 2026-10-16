@@ -1,7 +1,9 @@
-package apisecurity.auditservice.Exceptions;
+package apisecurity.auditservice.exceptions;
 
-public class CallerUnauthorizedException extends RuntimeException {
-  public CallerUnauthorizedException(String message) {
-    super(message);
-  }
+public class CallerUnauthorizedException extends RuntimeException
+{
+    public CallerUnauthorizedException(String message)
+    {
+        super(message);
+    }
 }

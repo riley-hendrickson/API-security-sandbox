@@ -1,7 +1,9 @@
-package apisecurity.auditservice.Exceptions;
+package apisecurity.auditservice.exceptions;
 
-public class MalformedJwtException extends RuntimeException {
-  public MalformedJwtException(String message) {
-    super(message);
-  }
+public class MalformedRequestException extends RuntimeException
+{
+    public MalformedRequestException(String message)
+    {
+        super(message);
+    }
 }

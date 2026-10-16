@@ -1,4 +1,8 @@
 package apisecurity.auditservice.dtos;
 
-public record AuditEventRequest() {
+import apisecurity.auditservice.enums.Action;
+import jakarta.validation.constraints.NotNull;
+
+public record AuditEventRequest(@NotNull Action action, Long documentId)
+{
 }

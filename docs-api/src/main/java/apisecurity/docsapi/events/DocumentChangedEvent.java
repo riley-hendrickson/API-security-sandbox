@@ -1,4 +1,5 @@
 package apisecurity.docsapi.events;
 
-public record DocumentChangedEvent() {
-}
+import apisecurity.docsapi.enums.AuditAction;
+
+public record DocumentChangedEvent(AuditAction action, Long documentId) {}

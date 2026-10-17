@@ -5,9 +5,12 @@ import apisecurity.docsapi.dtos.DocumentResponse;
 import apisecurity.docsapi.dtos.ShareRequest;
 import apisecurity.docsapi.dtos.UpdateDocumentRequest;
 import apisecurity.docsapi.entities.Document;
+import apisecurity.docsapi.enums.AuditAction;
+import apisecurity.docsapi.events.DocumentChangedEvent;
 import apisecurity.docsapi.exceptions.DocumentNotFoundException;
 import apisecurity.docsapi.exceptions.ForbiddenOperationException;
 import apisecurity.docsapi.repositories.DocumentRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +24,12 @@ import java.util.Set;
 public class DocumentService
 {
     private final DocumentRepository documentRepository;
+    private final ApplicationEventPublisher events;
 
-    public DocumentService(DocumentRepository documentRepository)
+    public DocumentService(DocumentRepository documentRepository, ApplicationEventPublisher events)
     {
         this.documentRepository = documentRepository;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -55,7 +60,9 @@ public class DocumentService
     public DocumentResponse createDocument(String userId, CreateDocumentRequest request)
     {
         Document newDocument = new Document(userId, new HashSet<>(), request.title(), request.content());
-        return convertToResponse(documentRepository.save(newDocument));
+        Document saved = documentRepository.save(newDocument);
+        events.publishEvent(new DocumentChangedEvent(AuditAction.DOCUMENT_CREATED, saved.getId()));
+        return convertToResponse(saved);
     }
 
     @Transactional
@@ -68,6 +75,7 @@ public class DocumentService
         updatedDocument.setTitle(request.title());
         updatedDocument.setContents(request.content());
         documentRepository.save(updatedDocument);
+        events.publishEvent(new DocumentChangedEvent(AuditAction.DOCUMENT_UPDATED, documentId));
     }
 
     @Transactional
@@ -78,6 +86,7 @@ public class DocumentService
         if (!storedDocument.get().getOwnerId().equals(userId))
             throw new ForbiddenOperationException("Only the owner can delete a document");
         documentRepository.delete(storedDocument.get());
+        events.publishEvent(new DocumentChangedEvent(AuditAction.DOCUMENT_DELETED, documentId));
     }
 
     @Transactional
@@ -90,6 +99,7 @@ public class DocumentService
         Document document = storedDocument.get();
         document.getSharedWith().addAll(request.userIds());
         documentRepository.save(document);
+        events.publishEvent(new DocumentChangedEvent(AuditAction.DOCUMENT_SHARED, documentId));
     }
 
     private DocumentResponse convertToResponse(Document document)

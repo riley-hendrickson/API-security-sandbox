@@ -16,5 +16,10 @@ spring:
           jwk-set-uri: http://keycloak:8083/realms/sandbox/protocol/openid-connect/certs
           audiences:
             - docs-api
+app:
+  keycloak:
+    internal-url: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8083}
+  docs-api:
+    client-secret: ${DOCS_API_SECRET:uRM4MOPrXrF1O2e4umRuCAYFCfyaecgBvoOjPrTW8bJPChVj2zhhuAYgGbQC1fs9qY79ajzh6XFxmMfhVlU6Na}
 server:
   port: 8082

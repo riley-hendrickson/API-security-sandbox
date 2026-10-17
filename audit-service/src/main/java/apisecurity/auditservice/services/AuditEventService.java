@@ -7,6 +7,8 @@ import apisecurity.auditservice.entities.AuditEvent;
 import apisecurity.auditservice.enums.Action;
 import apisecurity.auditservice.enums.CallerKind;
 import apisecurity.auditservice.repositories.AuditEventRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ public class AuditEventService
 {
     private final AuditEventRepository auditEventRepository;
     private final Clock clock;
+    private static final Logger log = LoggerFactory.getLogger(AuditEventService.class);
 
     public AuditEventService(AuditEventRepository auditEventRepository, Clock clock)
     {
@@ -49,6 +52,7 @@ public class AuditEventService
 
             auditEventRepository.save(
                     new AuditEvent(Instant.now(clock), auditEventRequest.action(), auditEventRequest.documentId(), jwt.getSubject(), jwt.getClaimAsString("azp"), CallerKind.USER));
+            log.info("Recorded USER {} doc={} actor={} viaClient{}",  auditEventRequest.action(), auditEventRequest.documentId(), jwt.getSubject(), jwt.getClaimAsString("azp"));
         }
     }
 }

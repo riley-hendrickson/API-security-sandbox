@@ -21,6 +21,9 @@ services:
     container_name: docs-api
     ports:
       - "8082:8082"
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8083
+      AUDIT_SERVICE_URL: http://audit-service:8080
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.4

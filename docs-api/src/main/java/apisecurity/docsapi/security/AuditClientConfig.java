@@ -7,14 +7,16 @@ import org.springframework.security.oauth2.client.*;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
-import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.client.web.client.OAuth2ClientHttpRequestInterceptor;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-public class OAuth2ClientConfig
+public class AuditClientConfig
 {
     @Bean
     ClientRegistrationRepository clientRegistrationRepository(
@@ -47,9 +49,21 @@ public class OAuth2ClientConfig
     @Bean
     OAuth2AuthorizedClientManager authorizedClientManager(ClientRegistrationRepository registrations)
     {
+        TokenExchangeOAuth2AuthorizedClientProvider tokenExchange = new TokenExchangeOAuth2AuthorizedClientProvider();
+        tokenExchange.setSubjectTokenResolver(context ->
+        {
+            if(context.getPrincipal() instanceof JwtAuthenticationToken authenticationToken)
+            {
+                Jwt jwt = authenticationToken.getToken();
+                return new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER,
+                        jwt.getTokenValue(), jwt.getIssuedAt(), jwt.getExpiresAt());
+            }
+            return null;
+        });
+
         OAuth2AuthorizedClientProvider provider = OAuth2AuthorizedClientProviderBuilder.builder()
                 .clientCredentials()
-                .provider(new TokenExchangeOAuth2AuthorizedClientProvider())
+                .provider(tokenExchange)
                 .build();
 
         AuthorizedClientServiceOAuth2AuthorizedClientManager manager =
@@ -60,8 +74,8 @@ public class OAuth2ClientConfig
     }
 
     @Bean
-    RestClient auditServiceClient(OAuth2AuthorizedClientManager authorizedClientManager,
-                                  @Value("${AUDIT_SERVICE_URL: http://localhost:8080}") String auditServiceUrl)
+    RestClient auditOnBehalfClient(OAuth2AuthorizedClientManager authorizedClientManager,
+                                  @Value("${AUDIT_SERVICE_URL:http://localhost:8080}") String auditServiceUrl)
     {
         OAuth2ClientHttpRequestInterceptor requestInterceptor = new OAuth2ClientHttpRequestInterceptor(authorizedClientManager);
         requestInterceptor.setClientRegistrationIdResolver(request -> "audit-on-behalf");

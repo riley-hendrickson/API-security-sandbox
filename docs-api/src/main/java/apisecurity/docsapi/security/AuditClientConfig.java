@@ -3,6 +3,9 @@ package apisecurity.docsapi.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.oauth2.client.*;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -16,6 +19,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.client.RestClient;
 
 @Configuration
+@EnableScheduling
 public class AuditClientConfig
 {
     @Bean
@@ -79,6 +83,22 @@ public class AuditClientConfig
     {
         OAuth2ClientHttpRequestInterceptor requestInterceptor = new OAuth2ClientHttpRequestInterceptor(authorizedClientManager);
         requestInterceptor.setClientRegistrationIdResolver(request -> "audit-on-behalf");
+
+        return RestClient.builder()
+                .requestInterceptor(requestInterceptor)
+                .baseUrl(auditServiceUrl)
+                .build();
+    }
+
+    @Bean
+    RestClient auditSystemClient(OAuth2AuthorizedClientManager authorizedClientManager,
+                                 @Value("${AUDIT_SERVICE_URL:http://localhost:8080}") String auditServiceUrl)
+    {
+        OAuth2ClientHttpRequestInterceptor requestInterceptor = new OAuth2ClientHttpRequestInterceptor(authorizedClientManager);
+        requestInterceptor.setClientRegistrationIdResolver(request -> "audit-system");
+        requestInterceptor.setPrincipalResolver(request ->
+                new AnonymousAuthenticationToken("docs-api-scheduler", "docs-api-scheduler",
+                        AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
 
         return RestClient.builder()
                 .requestInterceptor(requestInterceptor)

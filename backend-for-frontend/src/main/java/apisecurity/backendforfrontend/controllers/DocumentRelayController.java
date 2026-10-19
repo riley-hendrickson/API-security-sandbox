@@ -69,7 +69,9 @@ public class DocumentRelayController
     public ResponseEntity<String> shareDocumentWithUser(@PathVariable Long documentId, @RequestBody String body)
     {
         return docsApiClient.post()
-                .uri("/documents/{documentId}/shares", documentId, body)
+                .uri("/documents/{documentId}/shares", documentId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
                 .exchange(this:: relay);
     }
 

@@ -21,5 +21,7 @@ app:
     internal-url: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8083}
   docs-api:
     client-secret: ${DOCS_API_SECRET:uRM4MOPrXrF1O2e4umRuCAYFCfyaecgBvoOjPrTW8bJPChVj2zhhuAYgGbQC1fs9qY79ajzh6XFxmMfhVlU6Na}
+  audit:
+    snapshot-rate-ms: 60000
 server:
   port: 8082

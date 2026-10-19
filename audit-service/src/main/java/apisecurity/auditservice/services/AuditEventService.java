@@ -41,6 +41,7 @@ public class AuditEventService
 
             auditEventRepository.save(
                     new AuditEvent(Instant.now(clock), auditEventRequest.action(), null, null, jwt.getClaimAsString("azp"), CallerKind.SYSTEM));
+            log.info("Recorded SYSTEM {} viaClient {}", auditEventRequest.action(), jwt.getClaimAsString("azp"));
         }
         // Caller is a user
         else
@@ -52,7 +53,7 @@ public class AuditEventService
 
             auditEventRepository.save(
                     new AuditEvent(Instant.now(clock), auditEventRequest.action(), auditEventRequest.documentId(), jwt.getSubject(), jwt.getClaimAsString("azp"), CallerKind.USER));
-            log.info("Recorded USER {} doc={} actor={} viaClient{}",  auditEventRequest.action(), auditEventRequest.documentId(), jwt.getSubject(), jwt.getClaimAsString("azp"));
+            log.info("Recorded USER {} doc= {} actor= {} viaClient {}",  auditEventRequest.action(), auditEventRequest.documentId(), jwt.getSubject(), jwt.getClaimAsString("azp"));
         }
     }
 }

@@ -20,10 +20,13 @@ public class AuditClient
     public record AuditEventRequest(AuditAction action, Long documentId){}
 
     private final RestClient auditOnBehalfClient;
+    private final RestClient auditSystemClient;
 
-    public AuditClient(@Qualifier("auditOnBehalfClient") RestClient auditOnBehalfClient)
+    public AuditClient(@Qualifier("auditOnBehalfClient") RestClient auditOnBehalfClient,
+                       @Qualifier("auditSystemClient") RestClient auditSystemClient)
     {
         this.auditOnBehalfClient = auditOnBehalfClient;
+        this.auditSystemClient = auditSystemClient;
     }
 
     public void recordDocumentEvent(AuditAction action, Long documentId)
@@ -49,6 +52,32 @@ public class AuditClient
         catch(OAuth2AuthorizationException e)
         {
             log.error("Could not obtain audit token: action={}, documentId={}, error={}", action, documentId, e.getError().getErrorCode());
+        }
+    }
+
+    public void recordSystemEvent()
+    {
+        try
+        {
+            auditSystemClient.post()
+                    .uri("/audit-events")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new AuditEventRequest(AuditAction.SYSTEM_SNAPSHOT, null))
+                    .retrieve()
+                    .toBodilessEntity();
+        }
+        catch(RestClientResponseException e)
+        {
+            // audit service rejected the request, which means the bug is on our side
+            log.error("System audit event rejected: status={}", e.getStatusCode());
+        }
+        catch(RestClientException e)
+        {
+            log.warn("Audit service not available, system audit event not recorded:  error message={}", e.getMessage());
+        }
+        catch(OAuth2AuthorizationException e)
+        {
+            log.error("Could not obtain audit token:  error={}", e.getError().getErrorCode());
         }
     }
 }

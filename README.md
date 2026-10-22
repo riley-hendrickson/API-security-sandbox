@@ -35,13 +35,13 @@ docker compose up --build
 
 Then open `http://localhost:8081` and log in as one of the seeded users:
 
-| User | Role | Notes |
-|---|---|---|
-| `alice` | user | owns most of the seed documents |
-| `bob` | user | has one of alice's documents shared with him |
-| `carol-admin` | admin | can reach `/admin/**` |
+| User | Password | Role | Notes |
+|---|---|---|---|
+| `alice` | `alice` | user | owns most of the seed documents |
+| `bob` | `bob` | user | has one of alice's documents shared with him |
+| `carol-admin` | `carol` | admin | can reach `/admin/**` |
 
-<!-- TODO: passwords for the seeded users -->
+These are throwaway credentials for a local sandbox, committed on purpose so the project runs with one command.
 
 User IDs are fixed in the realm export (`1111…`, `2222…`, `3333…`), so a token's `sub` stays the same across restarts and the seed data stays valid.
 
@@ -112,7 +112,7 @@ Log in to the bff as alice, open the attacker page in another tab, then look for
 | B | `http://localhost:9000/evil.html` | off | ✅ **attack succeeds** | Same-site: the cookie is sent and nothing else checks the request |
 | C | `http://localhost:9000/evil.html` | on | ❌ blocked (403) | Cookie sent, but no `X-XSRF-TOKEN` header |
 
-Scenario B is why SameSite alone isn't enough: a sibling origin (a compromised subdomain, for example) counts as same-site. The CSRF switch exists only for this demo and defaults to on. <!-- TODO: property name for the switch -->
+Scenario B is why SameSite alone isn't enough: a sibling origin (a compromised subdomain, for example) counts as same-site. The CSRF switch (`app.demo.csrf-enabled`) exists only for this demo. It has no default, so the bff won't start without an explicit value, and it logs a loud warning whenever protection is off.
 
 ## Design decisions worth explaining
 

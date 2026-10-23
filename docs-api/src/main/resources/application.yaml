@@ -23,5 +23,13 @@ app:
     client-secret: ${DOCS_API_SECRET:uRM4MOPrXrF1O2e4umRuCAYFCfyaecgBvoOjPrTW8bJPChVj2zhhuAYgGbQC1fs9qY79ajzh6XFxmMfhVlU6Na}
   audit:
     snapshot-rate-ms: 60000
+apikeys:
+  dev:
+    active:
+      dk_active01_d1710a6b5cbdf99aac087017980ecb7a2b6a7b042ed96aec7e28d53370ccd797
+    revoked:
+      dk_revoked01_c4928c07065075c134f343615198696478f06c4bcf4e037893208b993dd139c4
+    expired:
+      dk_expired01_d1cf9c80dd380ed44d766e7e695e2536267890b78019bd2f344d2a76ffefc174
 server:
   port: 8082

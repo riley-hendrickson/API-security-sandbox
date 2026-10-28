@@ -3,6 +3,7 @@ package apisecurity.docsapi.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -97,10 +98,10 @@ public class SecurityConfig
     }
 
     @Bean
+    @Order(2)
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception
     {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/internal/**").denyAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth

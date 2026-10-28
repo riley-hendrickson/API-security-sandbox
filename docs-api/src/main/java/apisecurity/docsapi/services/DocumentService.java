@@ -102,6 +102,12 @@ public class DocumentService
         events.publishEvent(new DocumentChangedEvent(AuditAction.DOCUMENT_SHARED, documentId));
     }
 
+    @Transactional(readOnly = true)
+    public long getDocumentCountForSystem()
+    {
+        return documentRepository.count();
+    }
+
     private DocumentResponse convertToResponse(Document document)
     {
         return new DocumentResponse(document.getId(), document.getOwnerId(), Set.copyOf(document.getSharedWith()), document.getTitle(), document.getContents());

@@ -15,6 +15,11 @@ services:
       KEYCLOAK_INTERNAL_URL: http://keycloak:8083
       DOCS_API_URL: http://docs-api:8082
       CSRF_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy
 
   docs-api:
     build: ./docs-api
@@ -39,3 +44,13 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
 
+  redis:
+    image: redis:7.2.6-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5

@@ -19,6 +19,8 @@ public interface DocumentRepository extends Repository<Document, Long>
     @Query("SELECT d FROM Document d")
     List<Document> findAllForAdmin();
 
+    Long count();
+
     Document save(Document document);
 
     void delete(Document document);

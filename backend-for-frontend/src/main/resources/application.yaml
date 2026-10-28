@@ -6,12 +6,26 @@ app:
   keycloak:
     public-url: http://localhost:8083
     internal-url: ${KEYCLOAK_INTERNAL_URL:http://localhost:8083}
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
   bff:
     client-secret: ${BFF_CLIENT_SECRET:EYhTswpBsDDVDeRy5mcCCXsgI6apjxKWKy1tl1UM5vOaPRqEUTmAllc0MkmPzuItK2IkeivaLusS5yURu7tf9D}
   docs-api:
     url: ${DOCS_API_URL:http://localhost:8082}
   demo:
     csrf-enabled: ${CSRF_ENABLED:true}
+
+rate-limit:
+  ip:
+    capacity: 100
+    refill-tokens: 100
+    refill-period: 1m
+  user:
+    capacity: 30
+    refill-tokens: 60
+    refill-period: 1m
+  write-cost: 5
 
 server:
   port: 8081

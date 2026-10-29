@@ -1,5 +1,6 @@
 package apisecurity.backendforfrontend.config;
 
+import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,11 @@ public class RedisClientConfig
                 .withPort(redisPort)
                 .withTimeout(Duration.ofMillis(200))
                 .build();
-        return RedisClient.create(redisURI);
+
+        RedisClient redisClient = RedisClient.create(redisURI);
+        redisClient.setOptions(ClientOptions.builder()
+                .disconnectedBehavior(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
+                .build());
+        return redisClient;
     }
 }

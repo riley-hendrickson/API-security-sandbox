@@ -1,5 +1,6 @@
-package apisecurity.backendforfrontend.config;
+package apisecurity.backendforfrontend.ratelimiting;
 
+import apisecurity.backendforfrontend.config.RateLimitProperties;
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.ConsumptionProbe;
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -24,7 +26,7 @@ public class UserRateLimitInterceptor implements HandlerInterceptor
     private final BucketConfiguration userBucketConfiguration;
     private final RateLimitProperties rateLimitProperties;
 
-    private final Logger log = LoggerFactory.getLogger(UserRateLimitInterceptor.class);
+    private static final Logger log = LoggerFactory.getLogger(UserRateLimitInterceptor.class);
 
     public UserRateLimitInterceptor(LettuceBasedProxyManager<byte[]> proxyManager,
                                     @Qualifier("userBucketConfiguration") BucketConfiguration userBucketConfiguration,
@@ -62,7 +64,7 @@ public class UserRateLimitInterceptor implements HandlerInterceptor
         }
         catch(RuntimeException e)
         {
-            log.warn("Rate limiter unavailable, allowing request");
+            log.warn("Rate limiter unavailable, allowing request. " + e.getMessage());
             return true;
         }
 
@@ -71,12 +73,10 @@ public class UserRateLimitInterceptor implements HandlerInterceptor
             response.setHeader("X-RateLimit-Remaining", String.valueOf(probe.getRemainingTokens()));
             return true;
         }
-        else
-        {
-            long retryAfterSeconds = Math.max(1, (probe.getNanosToWaitForRefill() + 999_999_999) / 1_000_000_000);
-            response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
-            response.sendError(429, "Rate limit exceeded");
-            return false;
-        }
+
+        long retryAfterSeconds = Math.max(1, (probe.getNanosToWaitForRefill() + 999_999_999) / 1_000_000_000);
+        response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        return false;
     }
 }

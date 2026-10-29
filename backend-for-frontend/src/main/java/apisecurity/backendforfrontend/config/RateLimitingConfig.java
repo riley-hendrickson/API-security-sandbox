@@ -1,5 +1,6 @@
 package apisecurity.backendforfrontend.config;
 
+import apisecurity.backendforfrontend.ratelimiting.IpRateLimitFilter;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;

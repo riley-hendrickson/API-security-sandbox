@@ -1,4 +1,4 @@
-package apisecurity.backendforfrontend.config;
+package apisecurity.backendforfrontend.ratelimiting;
 
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.ConsumptionProbe;
@@ -21,7 +21,7 @@ public class IpRateLimitFilter extends OncePerRequestFilter
     private final LettuceBasedProxyManager<byte[]> proxyManager;
     private final BucketConfiguration ipBucketConfiguration;
 
-    private final Logger log = LoggerFactory.getLogger(IpRateLimitFilter.class);
+    private static final Logger log = LoggerFactory.getLogger(IpRateLimitFilter.class);
 
     public IpRateLimitFilter(LettuceBasedProxyManager<byte[]> proxyManager,
                              @Qualifier("ipBucketConfiguration") BucketConfiguration ipBucketConfiguration)
@@ -44,7 +44,7 @@ public class IpRateLimitFilter extends OncePerRequestFilter
         }
         catch (RuntimeException e)
         {
-            log.warn("Rate limiter unavailable, allowing request");
+            log.warn("Rate limiter unavailable, allowing request. " + e.getMessage());
             filterChain.doFilter(request, response);
             return;
         }

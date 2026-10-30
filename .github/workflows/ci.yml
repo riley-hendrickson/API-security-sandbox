@@ -22,7 +22,8 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix: [audit-service, backend-for-frontend, docs-api]
+      matrix:
+        service: [audit-service, backend-for-frontend, docs-api]
 
     defaults:
       run:

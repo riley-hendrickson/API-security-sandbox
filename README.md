@@ -1,6 +1,6 @@
 # API Security Playground
 
-![CI](https://github.com/<!-- TODO: owner -->/API-security-sandbox/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/riley-hendrickson/API-security-sandbox/actions/workflows/ci.yml/badge.svg)
 
 A small, deliberately security-focused system built to learn API authentication and authorization by implementing them end to end and then attacking them. The business logic is intentionally trivial (documents you can create, share, and delete); the point is everything around it: token validation, object- and function-level authorization, CORS, the Backend-for-Frontend pattern, CSRF, service-to-service security with token exchange and client credentials, a hand-written API-key authentication mechanism, rate limiting, identity-provider hardening, and a locked-down CI pipeline.
 
@@ -26,7 +26,7 @@ browser ──(session cookie + CSRF header)──▶ bff ──(Bearer, aud=doc
 | `keycloak` | Authorization server. Realm defined as code in `keycloak/realm-export.json`, including brute-force detection and login-event settings. | 8083 |
 | `backend-for-frontend` | OAuth client for the browser. Runs the login flow, keeps tokens in the server-side session, relays `/api/**` to docs-api with the user's token, rate-limits every caller, and serves the test page. | 8081 |
 | `docs-api` | Resource server for documents. Also an OAuth client: records every change in audit-service, either on the user's behalf (token exchange) or as itself (a scheduled job using client credentials). Exposes a separate `/internal/**` API for machine callers that authenticate with API keys. | 8082 |
-| `audit-service` | Strict, append-only resource server. Accepts writes only from docs-api, takes the actor from the token rather than the request, and has no update or delete endpoints. | <!-- TODO: host port, if exposed --> |
+| `audit-service` | Strict, append-only resource server. Accepts writes only from docs-api, takes the actor from the token rather than the request, and has no update or delete endpoints. | 8080 |
 | `redis` | Shared, atomic state for the bff's rate-limit buckets. | 6379 |
 
 **Stack:** Java 25, Spring Boot 4, Spring Security (resource server, OAuth2 client, method security, a custom `AuthenticationProvider`), Keycloak 26.7.4, Bucket4j, Redis, H2, Docker Compose, JUnit 5, MockMvc, Testcontainers, GitHub Actions.
@@ -106,7 +106,7 @@ Each row is an attack that was actually attempted against this system, and the t
 
 | Risk | Attack | Defense | Proof |
 |---|---|---|---|
-| **API1: Broken Object Level Authorization** | bob requests alice's document by ID | Ownership enforced in the query itself. The response is **404, not 403**, so the API doesn't confirm that the document exists. | docs-api `TODO_AuthorizationTestClass`: BOLA tests |
+| **API1: Broken Object Level Authorization** | bob requests alice's document by ID | Ownership enforced in the query itself. The response is **404, not 403**, so the API doesn't confirm that the document exists. | docs-api `DocumentAuthorizationTest` class: BOLA tests |
 | | bob re-shares a document that was only shared *with* him | Only the owner may share | `bob_cannotReshareDocSharedWithHim` |
 | **API2: Broken Authentication** | Tampered payload (`sub` changed to bob), signature reattached | Signature verified against Keycloak's JWKS | docs-api `TokenValidationTest.tamperedPayload_isRejected` |
 | | `alg: none` token | Decoder allows `RS256` only; the token's header doesn't choose the algorithm | `TokenValidationTest.algNone_isRejected` |
@@ -129,7 +129,7 @@ Each row is an attack that was actually attempted against this system, and the t
 | | A client other than docs-api writes to audit-service | Caller identity checked via `azp`, plus the `audit:write` scope | `AuditEventSecurityTest.callerOtherThanDocsApi_isRejected`, `tokenWithoutAuditScope_isRejected` |
 | | A user token records a system event, or a system token records a user event | Caller kind (user vs. system) classified from the token and matched to the action; ambiguous tokens fail closed | `userToken_cannotRecordSystemEvents`, `systemToken_cannotRecordUserEvents`, `ambiguousToken_*` |
 | | Updating or deleting audit records | The endpoints don't exist, and every other request is `denyAll()` | `AuditEventSecurityTest`: GET and DELETE tests |
-| **API8: Security Misconfiguration** | Cross-origin call from an unlisted origin, method, or header | Explicit CORS allowlist; no wildcards; `allowCredentials(false)` | docs-api `TODO_CorsTestClass` |
+| **API8: Security Misconfiguration** | Cross-origin call from an unlisted origin, method, or header | Explicit CORS allowlist; no wildcards; `allowCredentials(false)` | docs-api `CorsTest` class |
 | | Brute-force settings edited in the admin console but never committed | Realm-as-code; the test suite checks the imported realm before attacking it | `BruteForceLockoutTest.realmHasBruteForceProtectionConfigured` |
 | **CSRF** (CWE-352; not in the API Top 10, but relevant once a BFF uses cookies) | Hidden form on an attacker page silently POSTs to the bff | `SameSite=Lax` session cookie, plus a cookie-to-header CSRF token regenerated at login | Manual demo, below |
 | **Repudiation** (the "R" in STRIDE) | A user denies an action, or a caller tries to log an action under someone else's name | Append-only audit log; actor taken from the exchanged token; server-set timestamps; Keycloak login events record the authentication side | `AuditEventSecurityTest` (stored-row assertions) and `ReplayAttackTest` positive controls |
@@ -186,7 +186,6 @@ Scenario B is why SameSite alone isn't enough: a sibling origin (a compromised s
 - **Unknown fields are rejected, not ignored.** Silently ignoring `actorUserId` hides both forgery attempts and developer mistakes. A 400 surfaces both immediately.
 - **Per-user token caching for exchanged tokens.** A single shared cache entry would make every user's edits carry whichever user's token was exchanged first: an audit trail that looks correct and blames the wrong person.
 - **The realm is code.** The Keycloak realm is exported to JSON with fixed user IDs and client secrets, so the setup is reproducible and reviewable in a diff. Settings are discovered in the admin console but edited into the JSON by hand: the console's partial export masks client secrets, so re-importing it would break every confidential client.
-- **CORS on docs-api is kept as a record of Phase 2.** Since the BFF, no browser calls docs-api directly, so the configuration is no longer needed. <!-- TODO: confirm keep vs. remove -->
 
 ### API keys (docs-api `/internal/**`)
 
@@ -211,7 +210,7 @@ Scenario B is why SameSite alone isn't enough: a sibling origin (a compromised s
 
 ### Keycloak hardening
 
-- **Brute-force mode: permanent lockout after three temporary lockouts of 25 failures each.** This caps the total number of guesses per account. The accepted cost is that anyone who knows a username can deliberately lock that account; an admin can unlock it. Temporary-only lockout is the usual choice when availability matters more or there's no one to unlock accounts. <!-- TODO: confirm this matches your reasoning -->
+- **Brute-force mode: permanent lockout after three temporary lockouts of 25 failures each.** This caps the total number of guesses per account. The accepted cost is that anyone who knows a username can deliberately lock that account; an admin can unlock it. Temporary-only lockout is the usual choice when availability matters more or there's no one to unlock accounts.
 - **A locked account gets the same response as a wrong password,** so the response doesn't reveal the lockout.
 - **User events are on, admin events are off.** Failed logins are logged. A burst against one user is brute force; a burst across many users is spraying. Events carry usernames and IPs, so retention is a privacy decision.
 - **Direct access grants (the password grant) only on `dev-test-client`,** which tests use to get tokens. Never on `bff`; OAuth 2.1 drops the grant entirely.
